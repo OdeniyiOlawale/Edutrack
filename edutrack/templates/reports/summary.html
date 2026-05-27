@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Class Summary — EduTrack{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="page-title">Class Summary
+    <small>{{ term.name if term }} performance overview</small>
+  </div>
+  {% for row in summaries %}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">{{ row.class.name }}</span>
+      <span class="badge {% if row.class.level=='JSS' %}badge-jss{% else %}badge-ss{% endif %}">
+        {{ row.class.level }}{% if row.class.department %} · {{ row.class.department }}{% endif %}
+      </span>
+    </div>
+    {% if row.data is not none or row.average %}
+    <div class="card-body" style="padding:12px 16px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+        <div>
+          <div style="font-size:1.3rem;font-weight:800;color:var(--green)">{{ row.average or '—' }}</div>
+          <div class="text-xs text-muted">Class Avg</div>
+        </div>
+        <div>
+          <div style="font-size:1.3rem;font-weight:800;color:var(--ink)">{{ row.students }}</div>
+          <div class="text-xs text-muted">Students</div>
+        </div>
+        <div>
+          <div style="font-size:1.3rem;font-weight:800;color:{% if row.pass_rate and row.pass_rate >= 75 %}var(--green){% elif row.pass_rate and row.pass_rate >= 50 %}var(--gold){% else %}var(--red){% endif %}">
+            {{ row.pass_rate or 0 }}%
+          </div>
+          <div class="text-xs text-muted">Pass Rate</div>
+        </div>
+      </div>
+      {% if row.highest or row.lowest %}
+      <div class="divider"></div>
+      <div class="flex-row" style="font-size:0.78rem">
+        <span class="text-muted">High: <strong class="text-green">{{ row.highest }}</strong></span>
+        <span class="text-muted">Low: <strong class="text-red">{{ row.lowest }}</strong></span>
+        <span class="spacer"></span>
+        <span class="text-muted">Entered: <strong>{{ row.entered or 0 }}/{{ row.students }}</strong></span>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="card-body"><div class="text-xs text-muted text-center" style="padding:8px">No scores entered yet</div></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

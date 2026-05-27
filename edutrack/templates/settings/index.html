@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Settings — EduTrack{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex-row mb-2">
+    <div class="page-title" style="margin-bottom:0">Settings</div>
+    <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-sm" style="color:var(--red)">Logout</a>
+  </div>
+
+  <!-- School info -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">School Information</span></div>
+    <div class="card-body">
+      <form method="POST">
+        <div class="form-group">
+          <label class="form-label">School Name</label>
+          <input class="form-control" type="text" name="school_name" value="{{ settings.school_name }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <input class="form-control" type="text" name="school_address" value="{{ settings.school_address }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input class="form-control" type="text" name="school_phone" value="{{ settings.school_phone }}">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Session</label>
+            <input class="form-control" type="text" name="current_session" value="{{ settings.current_session }}" placeholder="e.g. 2024/2025">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Term</label>
+            <select class="form-control" name="current_term">
+              {% for t in ['First Term','Second Term','Third Term'] %}
+              <option {% if settings.current_term == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Save Settings</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">User Accounts</span></div>
+    <div>
+      {% for u in users %}
+      <div class="list-item">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--green);flex-shrink:0">
+          {{ u.full_name[0] }}
+        </div>
+        <div class="list-main">
+          <div class="list-title">{{ u.full_name }}</div>
+          <div class="list-sub">@{{ u.username }} · {{ u.role.replace('_',' ').title() }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="card-body" style="border-top:1px solid var(--border)">
+      <div class="section-label mb-2">Add New User</div>
+      <form method="POST" action="{{ url_for('settings.add_user') }}">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input class="form-control" type="text" name="full_name" placeholder="e.g. Mrs. Amaka Obi" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input class="form-control" type="text" name="username" placeholder="e.g. amaka" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-control" type="password" name="password" placeholder="Min 6 chars" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select class="form-control" name="role">
+            <option value="subject_teacher">Subject Teacher</option>
+            <option value="class_teacher">Class Teacher</option>
+            <option value="principal">Principal</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-outline btn-full">Add User</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Grading scale reference -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Grading Scale</span></div>
+    <div class="card-body">
+      {% for rng, g, rem, cls in [('70–100','A','Excellent','A'),('60–69','B','Good','B'),('50–59','C','Average','C'),('40–49','D','Below Average','D'),('0–39','F','Fail','F')] %}
+      <div class="flex-row" style="padding:5px 0;border-bottom:1px solid var(--border)">
+        <span class="text-sm text-muted">{{ rng }}</span>
+        <span class="badge badge-{{ cls }}">{{ g }}</span>
+        <span class="text-sm">{{ rem }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

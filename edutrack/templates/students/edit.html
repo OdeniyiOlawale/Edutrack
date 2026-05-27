@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Edit Student — EduTrack{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex-row mb-2">
+    <a href="{{ url_for('students.index') }}" class="btn btn-ghost btn-sm">← Back</a>
+    <div class="page-title" style="margin-bottom:0">Edit Student</div>
+  </div>
+  {% if error %}<div class="alert alert-error">❌ {{ error }}</div>{% endif %}
+  <div class="card">
+    <div class="card-body">
+      <form method="POST">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input class="form-control" type="text" name="full_name" value="{{ student.full_name }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Class *</label>
+          <select class="form-control" name="class_id" required>
+            {% for cls in classes %}
+            <option value="{{ cls.id }}" {% if cls.id == student.class_id %}selected{% endif %}>{{ cls.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Gender</label>
+            <select class="form-control" name="gender">
+              <option value="">—</option>
+              <option {% if student.gender=='Male' %}selected{% endif %}>Male</option>
+              <option {% if student.gender=='Female' %}selected{% endif %}>Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date of Birth</label>
+            <input class="form-control" type="date" name="date_of_birth" value="{{ student.date_of_birth or '' }}">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Save Changes</button>
+      </form>
+    </div>
+  </div>
+  <div class="text-xs text-muted text-center mt-2">Student ID: {{ student.student_id }}</div>
+</div>
+{% endblock %}

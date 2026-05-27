@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — EduTrack{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex-row mb-2">
+    <div>
+      <div class="page-title">Dashboard
+        <small>{{ term.session_name if term else '' }} &nbsp;·&nbsp; {{ term.name if term else 'No term set' }}</small>
+      </div>
+    </div>
+    <span class="badge badge-jss" style="font-size:0.7rem;padding:4px 10px;background:var(--green-light);color:var(--green)">
+      {{ settings.current_session }}
+    </span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card green">
+      <div class="stat-label">Students</div>
+      <div class="stat-value">{{ stats.total_students or 0 }}</div>
+      <div class="stat-sub">Enrolled across all classes</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="stat-label">With Scores</div>
+      <div class="stat-value">{{ stats.scores_entered or 0 }}</div>
+      <div class="stat-sub">This term</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">School Avg</div>
+      <div class="stat-value">{{ stats.school_average or '—' }}</div>
+      <div class="stat-sub">{{ term.name if term else '—' }}</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">At Risk</div>
+      <div class="stat-value">{{ stats.at_risk or 0 }}</div>
+      <div class="stat-sub">Scored below 40</div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="action-grid">
+    <a href="{{ url_for('students.add') }}"  class="btn btn-outline">＋ Add Student</a>
+    <a href="{{ url_for('scores.index') }}"  class="btn btn-primary">✏️ Enter Scores</a>
+    <a href="{{ url_for('reports.report_card') }}" class="btn btn-outline">📄 Report Card</a>
+    <a href="{{ url_for('reports.summary') }}"     class="btn btn-outline">📊 Summary</a>
+  </div>
+
+  <!-- Classes -->
+  <div class="section-row">
+    <span class="section-label">All Classes</span>
+    <a href="{{ url_for('students.index') }}" class="btn btn-ghost btn-sm">View Students</a>
+  </div>
+
+  <div class="card">
+    {% for cls in class_summaries %}
+    <a href="{{ url_for('scores.index') }}?class_id={{ cls.id }}" class="list-item">
+      <div class="list-main">
+        <div class="list-title">{{ cls.name }}</div>
+        <div class="list-sub">
+          <span class="badge {% if cls.level=='JSS' %}badge-jss{% else %}badge-ss{% endif %}">
+            {{ cls.level }}{% if cls.dept %} · {{ cls.dept }}{% endif %}
+          </span>
+          &nbsp;{{ cls.students }} student{{ 's' if cls.students != 1 }}
+        </div>
+      </div>
+      <div class="list-right">
+        {% if cls.average %}
+          <div style="font-size:1.2rem;font-weight:800;color:var(--green)">{{ cls.average }}</div>
+          <div class="text-xs text-muted">avg</div>
+        {% else %}
+          <div class="text-xs text-muted">No scores yet</div>
+        {% endif %}
+        <span style="color:var(--border);font-size:1rem">›</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if g.user.role == 'principal' %}
+  <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-full" style="color:var(--red);border-color:var(--red)">
+    Sign Out
+  </a>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Report Card — EduTrack{% endblock %}
+{% block extra_style %}
+.report-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 16px; font-size: 0.82rem; }
+.rc-school   { text-align: center; border-bottom: 2px solid var(--ink); padding-bottom: 12px; margin-bottom: 12px; }
+.rc-school h2 { font-size: 1.1rem; font-weight: 800; }
+.rc-school p  { font-size: 0.72rem; color: var(--ink-soft); }
+.rc-title { display: inline-block; background: var(--green-dark); color: white; font-size: 0.78rem; font-weight: 700; padding: 3px 14px; border-radius: 4px; margin-top: 6px; }
+.rc-meta  { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; background: var(--mist); padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.78rem; }
+.rc-meta-row { display: flex; gap: 4px; }
+.rc-meta-label { color: var(--ink-soft); min-width: 80px; }
+.rc-meta-val   { font-weight: 700; }
+.rc-table      { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.rc-table th   { background: var(--green-dark); color: white; padding: 6px 8px; text-align: center; font-size: 0.68rem; }
+.rc-table th:first-child { text-align: left; }
+.rc-table td   { border: 1px solid var(--border); padding: 5px 8px; text-align: center; }
+.rc-table td:first-child { text-align: left; }
+.rc-table tr:nth-child(even) td { background: var(--mist); }
+.rc-summary    { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.rc-sum-box    { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.rc-sum-title  { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-soft); font-weight: 600; margin-bottom: 5px; }
+.rc-sum-full   { grid-column: 1/-1; }
+.rc-sigs       { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.rc-sig        { text-align: center; font-size: 0.7rem; color: var(--ink-soft); }
+.rc-sig-line   { width: 80px; border-bottom: 1px solid var(--ink); height: 22px; margin-bottom: 4px; }
+@media print {
+  .no-print { display: none !important; }
+  .report-card { border: none; padding: 0; }
+}
+{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="page-title">Report Card</div>
+
+  <!-- Selectors -->
+  <form method="GET" class="no-print">
+    <div class="form-group">
+      <label class="form-label">Class</label>
+      <select class="form-control" name="class_id" onchange="this.form.submit()">
+        <option value="">Select class…</option>
+        {% for cls in classes %}
+        <option value="{{ cls.id }}" {% if selected_class == cls.id|string %}selected{% endif %}>{{ cls.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if students %}
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Student</label>
+        <select class="form-control" name="student_id">
+          <option value="">Select…</option>
+          {% for s in students %}
+          <option value="{{ s.id }}" {% if selected_student == s.id|string %}selected{% endif %}>{{ s.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end">
+        <button type="submit" class="btn btn-primary btn-full">Generate</button>
+      </div>
+    </div>
+    {% endif %}
+  </form>
+
+  {% if report %}
+  <div class="flex-row mb-2 no-print">
+    <div class="spacer"></div>
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Print</button>
+  </div>
+
+  <div class="report-card">
+    <!-- School Header -->
+    <div class="rc-school">
+      <h2>{{ settings.school_name.upper() }}</h2>
+      <p>{{ settings.school_address }} &nbsp;|&nbsp; Tel: {{ settings.school_phone }}</p>
+      <span class="rc-title">STUDENT ACADEMIC REPORT — {{ term.name.upper() }}</span>
+    </div>
+
+    <!-- Student Meta -->
+    <div class="rc-meta">
+      <div class="rc-meta-row"><span class="rc-meta-label">Name:</span><span class="rc-meta-val">{{ report.student.full_name }}</span></div>
+      <div class="rc-meta-row"><span class="rc-meta-label">ID:</span><span class="rc-meta-val">{{ report.student.student_id }}</span></div>
+      <div class="rc-meta-row"><span class="rc-meta-label">Class:</span><span class="rc-meta-val">{{ report.student.class_name }}</span></div>
+      <div class="rc-meta-row"><span class="rc-meta-label">Session:</span><span class="rc-meta-val">{{ term.session_name }}</span></div>
+      <div class="rc-meta-row"><span class="rc-meta-label">Gender:</span><span class="rc-meta-val">{{ report.student.gender or '—' }}</span></div>
+      <div class="rc-meta-row"><span class="rc-meta-label">No. in Class:</span><span class="rc-meta-val">{{ report.class_size }}</span></div>
+    </div>
+
+    <!-- Scores Table -->
+    <table class="rc-table">
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>CA1<br>/20</th>
+          <th>CA2<br>/20</th>
+          <th>CA<br>/40</th>
+          <th>Exam<br>/60</th>
+          <th>Total<br>/100</th>
+          <th>Grd</th>
+          <th>Remark</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for score in report.scores %}
+        {% set g, rem = get_grade(score.total) %}
+        <tr>
+          <td>{{ score.subject }}</td>
+          <td>{{ score.ca1|int if score.ca1 is not none else '—' }}</td>
+          <td>{{ score.ca2|int if score.ca2 is not none else '—' }}</td>
+          <td>{{ score.ca_total|int if score.ca_total is not none else '—' }}</td>
+          <td>{{ score.exam|int if score.exam is not none else '—' }}</td>
+          <td><strong>{{ score.total|int if score.total is not none else '—' }}</strong></td>
+          <td><span class="badge badge-{{ g }}">{{ g }}</span></td>
+          <td>{{ rem }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Summary -->
+    <div class="rc-summary">
+      <div class="rc-sum-box">
+        <div class="rc-sum-title">Performance</div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Total:</span><span class="rc-meta-val">{{ report.total_score }}</span></div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Average:</span><span class="rc-meta-val">{{ report.average }}%</span></div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Position:</span><span class="rc-meta-val">{{ report.position }} of {{ report.class_size }}</span></div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Grade:</span><span class="rc-meta-val">{{ report.grade }} — {{ report.remark }}</span></div>
+      </div>
+      <div class="rc-sum-box">
+        <div class="rc-sum-title">Attendance</div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Present:</span><span class="rc-meta-val">— days</span></div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Absent:</span><span class="rc-meta-val">— days</span></div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Punctuality:</span><span class="rc-meta-val">—</span></div>
+      </div>
+      <div class="rc-sum-box rc-sum-full">
+        <div class="rc-sum-title">Class Teacher's Remark</div>
+        <div style="min-height:36px;color:var(--ink-soft);font-style:italic;font-size:0.8rem">
+          — (to be filled by class teacher)
+        </div>
+      </div>
+    </div>
+
+    <!-- Signatures -->
+    <div class="rc-sigs">
+      {% for label in ['Class Teacher', 'Head of Studies', 'Principal', 'Parent/Guardian'] %}
+      <div class="rc-sig">
+        <div class="rc-sig-line"></div>
+        <div>{{ label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% elif selected_class %}
+  <div class="card"><div class="empty"><div class="icon">📄</div><h3>Select a student</h3><p>Choose a student above to generate their report card.</p></div></div>
+  {% else %}
+  <div class="card"><div class="empty"><div class="icon">📄</div><h3>Generate a report card</h3><p>Select a class and student above.</p></div></div>
+  {% endif %}
+</div>
+{% endblock %}

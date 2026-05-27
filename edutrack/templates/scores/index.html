@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Enter Scores — EduTrack{% endblock %}
+{% block extra_style %}
+.score-table th, .score-table td { padding: 8px 6px; font-size: 0.8rem; }
+.score-table th { text-align: center; }
+.score-table td:first-child { text-align: left; max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.score-table td { text-align: center; }
+{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="page-title">Enter Scores
+    <small>{% if term %}{{ term.name }} · {{ term.session_name }}{% endif %}</small>
+  </div>
+
+  <!-- Class + Subject selectors -->
+  <form method="GET" id="filter-form">
+    <div class="form-group">
+      <label class="form-label">Class</label>
+      <select class="form-control" name="class_id" onchange="this.form.submit()">
+        <option value="">Select class…</option>
+        {% for cls in classes %}
+        <option value="{{ cls.id }}" {% if selected_class == cls.id|string %}selected{% endif %}>
+          {{ cls.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if subjects %}
+    <div class="form-group">
+      <label class="form-label">Subject</label>
+      <select class="form-control" name="subject_id" onchange="this.form.submit()">
+        <option value="">Select subject…</option>
+        {% for subj in subjects %}
+        <option value="{{ subj.id }}" {% if selected_subject == subj.id|string %}selected{% endif %}>
+          {{ subj.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </form>
+
+  {% if students_scores %}
+  <div class="alert alert-info">ℹ️ CA 1 and CA 2 are max 20 each. Exam is max 60. Totals calculate automatically.</div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">
+        {% for cls in classes %}{% if cls.id|string == selected_class %}{{ cls.name }}{% endif %}{% endfor %}
+        —
+        {% for subj in subjects %}{% if subj.id|string == selected_subject %}{{ subj.name }}{% endif %}{% endfor %}
+      </span>
+      <button class="btn btn-primary btn-sm" id="save-btn" onclick="saveScores()">💾 Save</button>
+    </div>
+    <div class="table-wrap">
+      <table class="score-table" id="score-table">
+        <thead>
+          <tr>
+            <th style="text-align:left">Student</th>
+            <th>CA1<br><span class="text-xs" style="font-weight:400;opacity:.7">/20</span></th>
+            <th>CA2<br><span class="text-xs" style="font-weight:400;opacity:.7">/20</span></th>
+            <th>CA<br><span class="text-xs" style="font-weight:400;opacity:.7">/40</span></th>
+            <th>Exam<br><span class="text-xs" style="font-weight:400;opacity:.7">/60</span></th>
+            <th>Total<br><span class="text-xs" style="font-weight:400;opacity:.7">/100</span></th>
+            <th>Grd</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in students_scores %}
+          <tr data-student-id="{{ s.id }}">
+            <td title="{{ s.full_name }}">{{ s.full_name.split()[0] }} {{ s.full_name.split()[-1] if s.full_name.split()|length > 1 }}</td>
+            <td><input class="score-input" type="number" min="0" max="20" step="0.5" value="{{ s.ca1 if s.ca1 is not none else '' }}" placeholder="—" oninput="calcRow(this)"></td>
+            <td><input class="score-input" type="number" min="0" max="20" step="0.5" value="{{ s.ca2 if s.ca2 is not none else '' }}" placeholder="—" oninput="calcRow(this)"></td>
+            <td class="ca-total font-bold">{{ s.ca_total|int if s.ca_total is not none else '—' }}</td>
+            <td><input class="score-input" type="number" min="0" max="60" step="0.5" value="{{ s.exam if s.exam is not none else '' }}" placeholder="—" oninput="calcRow(this)"></td>
+            <td class="row-total font-bold">{{ s.total|int if s.total is not none else '—' }}</td>
+            <td class="row-grade">
+              {% if s.total is not none %}
+                {% set g, _ = get_grade(s.total) %}
+                <span class="badge badge-{{ g }}">{{ g }}</span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if summary %}
+    <div class="score-footer">
+      <span>Avg: <strong>{{ summary.average }}</strong></span>
+      <span>High: <strong class="text-green">{{ summary.highest|int }}</strong></span>
+      <span>Low: <strong class="text-red">{{ summary.lowest|int }}</strong></span>
+      <span>Entered: <strong>{{ summary.entered }}/{{ summary.total }}</strong></span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Sticky save confirmation -->
+  <div class="save-bar" id="save-bar">
+    <span class="save-bar-text" id="save-msg">Unsaved changes</span>
+    <button class="btn btn-primary btn-sm" onclick="saveScores()">Save All</button>
+  </div>
+
+  {% elif selected_class and selected_subject %}
+  <div class="card"><div class="empty"><div class="icon">👤</div><h3>No students in this class</h3><p>Add students first from the Students tab.</p></div></div>
+  {% elif selected_class %}
+  <div class="card"><div class="empty"><div class="icon">📚</div><h3>Select a subject</h3><p>Choose a subject above to load the score sheet.</p></div></div>
+  {% else %}
+  <div class="card"><div class="empty"><div class="icon">✏️</div><h3>Select a class to begin</h3><p>Choose a class and subject above to enter scores.</p></div></div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TERM_ID    = {{ term.id if term else 'null' }};
+const SUBJECT_ID = {{ selected_subject or 'null' }};
+let dirty = false;
+
+function calcRow(input) {
+  const row  = input.closest('tr');
+  const inputs = row.querySelectorAll('input');
+  const ca1  = parseFloat(inputs[0].value) || 0;
+  const ca2  = parseFloat(inputs[1].value) || 0;
+  const exam = parseFloat(inputs[2].value) || 0;
+
+  inputs[0].classList.toggle('over', parseFloat(inputs[0].value) > 20);
+  inputs[1].classList.toggle('over', parseFloat(inputs[1].value) > 20);
+  inputs[2].classList.toggle('over', parseFloat(inputs[2].value) > 60);
+
+  const cat   = ca1 + ca2;
+  const total = cat + exam;
+
+  row.querySelector('.ca-total').textContent = inputs[0].value || inputs[1].value ? cat : '—';
+  row.querySelector('.row-total').textContent = (inputs[0].value || inputs[1].value || inputs[2].value) ? total : '—';
+
+  const grades = [
+    [70,'A'],[60,'B'],[50,'C'],[40,'D'],[0,'F']
+  ];
+  let g = '—';
+  if (inputs[0].value || inputs[1].value || inputs[2].value) {
+    for (const [min, ltr] of grades) { if (total >= min) { g = ltr; break; } }
+  }
+  const gradeCell = row.querySelector('.row-grade');
+  gradeCell.innerHTML = g === '—' ? '—' :
+    `<span class="badge badge-${g}">${g}</span>`;
+
+  markDirty();
+}
+
+function markDirty() {
+  if (!dirty) {
+    dirty = true;
+    document.getElementById('save-bar').classList.add('visible');
+  }
+}
+
+async function saveScores() {
+  const rows = document.querySelectorAll('#score-table tbody tr');
+  const scores = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    scores.push({
+      student_id: parseInt(row.dataset.studentId),
+      ca1:  inputs[0].value !== '' ? parseFloat(inputs[0].value) : null,
+      ca2:  inputs[1].value !== '' ? parseFloat(inputs[1].value) : null,
+      exam: inputs[2].value !== '' ? parseFloat(inputs[2].value) : null,
+    });
+  });
+
+  const btn = document.getElementById('save-btn');
+  btn.textContent = 'Saving…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/scores/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ term_id: TERM_ID, subject_id: parseInt(SUBJECT_ID), scores })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      dirty = false;
+      document.getElementById('save-bar').classList.remove('visible');
+      document.getElementById('save-msg').textContent = `Saved ${data.saved} records`;
+      btn.textContent = '✅ Saved';
+      setTimeout(() => { btn.textContent = '💾 Save'; btn.disabled = false; }, 2000);
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+      btn.textContent = '💾 Save'; btn.disabled = false;
+    }
+  } catch(e) {
+    alert('Network error. Please try again.');
+    btn.textContent = '💾 Save'; btn.disabled = false;
+  }
+}
+
+window.addEventListener('beforeunload', e => {
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+</script>
+{% endblock %}

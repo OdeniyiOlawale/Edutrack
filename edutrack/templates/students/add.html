@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Add Student — EduTrack{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex-row mb-2">
+    <a href="{{ url_for('students.index') }}" class="btn btn-ghost btn-sm">← Back</a>
+    <div class="page-title" style="margin-bottom:0">Add Student</div>
+  </div>
+  {% if error %}<div class="alert alert-error">❌ {{ error }}</div>{% endif %}
+  <div class="card">
+    <div class="card-body">
+      <form method="POST">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input class="form-control" type="text" name="full_name" placeholder="e.g. Adaeze Okonkwo" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Class *</label>
+          <select class="form-control" name="class_id" required>
+            <option value="">Select class…</option>
+            {% for cls in classes %}
+            <option value="{{ cls.id }}">{{ cls.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Gender</label>
+            <select class="form-control" name="gender">
+              <option value="">Select…</option>
+              <option>Male</option>
+              <option>Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date of Birth</label>
+            <input class="form-control" type="date" name="date_of_birth">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Add Student</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
