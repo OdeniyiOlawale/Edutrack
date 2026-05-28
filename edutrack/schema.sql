@@ -15,6 +15,7 @@ INSERT OR IGNORE INTO settings VALUES
     ('school_name',    'Hillside Secondary School'),
     ('school_address', '14 Education Road, Ilorin, Kwara State'),
     ('school_phone',   '08012345678'),
+    ('school_email',   ''),
     ('current_session','2024/2025'),
     ('current_term',   'First Term');
 

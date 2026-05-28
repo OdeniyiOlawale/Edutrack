@@ -18,7 +18,7 @@
 .rc-table tr:nth-child(even) td { background: var(--mist); }
 .rc-summary    { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .rc-sum-box    { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
-.rc-sum-title  { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-soft); font-weight: 600; margin-bottom: 5px; }
+.rc-sum-title  { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-soft); font-weight: 600; margin-bottom: 6px; }
 .rc-sum-full   { grid-column: 1/-1; }
 .rc-sigs       { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
 .rc-sig        { text-align: center; font-size: 0.7rem; color: var(--ink-soft); }
@@ -32,7 +32,6 @@
 <div class="page">
   <div class="page-title">Report Card</div>
 
-  <!-- Selectors -->
   <form method="GET" class="no-print">
     <div class="form-group">
       <label class="form-label">Class</label>
@@ -68,14 +67,12 @@
   </div>
 
   <div class="report-card">
-    <!-- School Header -->
     <div class="rc-school">
       <h2>{{ settings.school_name.upper() }}</h2>
-      <p>{{ settings.school_address }} &nbsp;|&nbsp; Tel: {{ settings.school_phone }}</p>
+      <p>{{ settings.school_address }}{% if settings.school_phone %} &nbsp;|&nbsp; Tel: {{ settings.school_phone }}{% endif %}{% if settings.school_email %} &nbsp;|&nbsp; {{ settings.school_email }}{% endif %}</p>
       <span class="rc-title">STUDENT ACADEMIC REPORT — {{ term.name.upper() }}</span>
     </div>
 
-    <!-- Student Meta -->
     <div class="rc-meta">
       <div class="rc-meta-row"><span class="rc-meta-label">Name:</span><span class="rc-meta-val">{{ report.student.full_name }}</span></div>
       <div class="rc-meta-row"><span class="rc-meta-label">ID:</span><span class="rc-meta-val">{{ report.student.student_id }}</span></div>
@@ -85,23 +82,16 @@
       <div class="rc-meta-row"><span class="rc-meta-label">No. in Class:</span><span class="rc-meta-val">{{ report.class_size }}</span></div>
     </div>
 
-    <!-- Scores Table -->
     <table class="rc-table">
       <thead>
         <tr>
-          <th>Subject</th>
-          <th>CA1<br>/20</th>
-          <th>CA2<br>/20</th>
-          <th>CA<br>/40</th>
-          <th>Exam<br>/60</th>
-          <th>Total<br>/100</th>
-          <th>Grd</th>
-          <th>Remark</th>
+          <th>Subject</th><th>CA1<br>/20</th><th>CA2<br>/20</th>
+          <th>CA<br>/40</th><th>Exam<br>/60</th><th>Total<br>/100</th>
+          <th>Grade</th><th>Remark</th>
         </tr>
       </thead>
       <tbody>
         {% for score in report.scores %}
-        {% set g, rem = get_grade(score.total) %}
         <tr>
           <td>{{ score.subject }}</td>
           <td>{{ score.ca1|int if score.ca1 is not none else '—' }}</td>
@@ -109,17 +99,16 @@
           <td>{{ score.ca_total|int if score.ca_total is not none else '—' }}</td>
           <td>{{ score.exam|int if score.exam is not none else '—' }}</td>
           <td><strong>{{ score.total|int if score.total is not none else '—' }}</strong></td>
-          <td><span class="badge badge-{{ g }}">{{ g }}</span></td>
-          <td>{{ rem }}</td>
+          <td><span class="badge badge-{{ score.grade }}">{{ score.grade }}</span></td>
+          <td>{{ score.remark }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
 
-    <!-- Summary -->
     <div class="rc-summary">
       <div class="rc-sum-box">
-        <div class="rc-sum-title">Performance</div>
+        <div class="rc-sum-title">Performance Summary</div>
         <div class="rc-meta-row"><span class="rc-meta-label">Total:</span><span class="rc-meta-val">{{ report.total_score }}</span></div>
         <div class="rc-meta-row"><span class="rc-meta-label">Average:</span><span class="rc-meta-val">{{ report.average }}%</span></div>
         <div class="rc-meta-row"><span class="rc-meta-label">Position:</span><span class="rc-meta-val">{{ report.position }} of {{ report.class_size }}</span></div>
@@ -127,25 +116,21 @@
       </div>
       <div class="rc-sum-box">
         <div class="rc-sum-title">Attendance</div>
-        <div class="rc-meta-row"><span class="rc-meta-label">Present:</span><span class="rc-meta-val">— days</span></div>
-        <div class="rc-meta-row"><span class="rc-meta-label">Absent:</span><span class="rc-meta-val">— days</span></div>
-        <div class="rc-meta-row"><span class="rc-meta-label">Punctuality:</span><span class="rc-meta-val">—</span></div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Present:</span><span class="rc-meta-val">___</span></div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Absent:</span><span class="rc-meta-val">___</span></div>
+        <div class="rc-meta-row"><span class="rc-meta-label">Punctuality:</span><span class="rc-meta-val">___</span></div>
       </div>
       <div class="rc-sum-box rc-sum-full">
         <div class="rc-sum-title">Class Teacher's Remark</div>
-        <div style="min-height:36px;color:var(--ink-soft);font-style:italic;font-size:0.8rem">
-          — (to be filled by class teacher)
+        <div style="min-height:40px;color:var(--ink-soft);font-style:italic;font-size:0.8rem">
+          ___________________________________________________________
         </div>
       </div>
     </div>
 
-    <!-- Signatures -->
     <div class="rc-sigs">
-      {% for label in ['Class Teacher', 'Head of Studies', 'Principal', 'Parent/Guardian'] %}
-      <div class="rc-sig">
-        <div class="rc-sig-line"></div>
-        <div>{{ label }}</div>
-      </div>
+      {% for label in ['Class Teacher','Head of Studies','Principal','Parent/Guardian'] %}
+      <div class="rc-sig"><div class="rc-sig-line"></div><div>{{ label }}</div></div>
       {% endfor %}
     </div>
   </div>

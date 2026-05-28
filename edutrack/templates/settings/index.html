@@ -7,27 +7,33 @@
     <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-sm" style="color:var(--red)">Logout</a>
   </div>
 
-  <!-- School info -->
+  <!-- School Info -->
   <div class="card">
     <div class="card-header"><span class="card-title">School Information</span></div>
     <div class="card-body">
       <form method="POST">
         <div class="form-group">
           <label class="form-label">School Name</label>
-          <input class="form-control" type="text" name="school_name" value="{{ settings.school_name }}">
+          <input class="form-control" type="text" name="school_name" value="{{ settings.school_name or '' }}">
         </div>
         <div class="form-group">
           <label class="form-label">Address</label>
-          <input class="form-control" type="text" name="school_address" value="{{ settings.school_address }}">
+          <input class="form-control" type="text" name="school_address" value="{{ settings.school_address or '' }}">
         </div>
-        <div class="form-group">
-          <label class="form-label">Phone</label>
-          <input class="form-control" type="text" name="school_phone" value="{{ settings.school_phone }}">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input class="form-control" type="text" name="school_phone" value="{{ settings.school_phone or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-control" type="email" name="school_email" placeholder="school@example.com" value="{{ settings.school_email or '' }}">
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Session</label>
-            <input class="form-control" type="text" name="current_session" value="{{ settings.current_session }}" placeholder="e.g. 2024/2025">
+            <input class="form-control" type="text" name="current_session" value="{{ settings.current_session or '' }}" placeholder="e.g. 2024/2025">
           </div>
           <div class="form-group">
             <label class="form-label">Current Term</label>
@@ -56,9 +62,21 @@
           <div class="list-title">{{ u.full_name }}</div>
           <div class="list-sub">@{{ u.username }} · {{ u.role.replace('_',' ').title() }}</div>
         </div>
+        <div class="flex-row" style="gap:6px;flex-shrink:0">
+          <a href="{{ url_for('settings.edit_user', user_id=u.id) }}" class="btn btn-ghost btn-sm">Edit</a>
+          <a href="{{ url_for('settings.change_password', user_id=u.id) }}" class="btn btn-outline btn-sm">🔑</a>
+          {% if u.id != g.user.id %}
+          <form method="POST" action="{{ url_for('settings.delete_user', user_id=u.id) }}"
+                onsubmit="return confirm('Delete {{ u.full_name }}? This cannot be undone.')">
+            <button type="submit" class="btn btn-sm" style="background:var(--red-light);color:var(--red)">✕</button>
+          </form>
+          {% endif %}
+        </div>
       </div>
       {% endfor %}
     </div>
+
+    <!-- Add user form -->
     <div class="card-body" style="border-top:1px solid var(--border)">
       <div class="section-label mb-2">Add New User</div>
       <form method="POST" action="{{ url_for('settings.add_user') }}">
@@ -89,14 +107,14 @@
     </div>
   </div>
 
-  <!-- Grading scale reference -->
+  <!-- Grading scale -->
   <div class="card">
     <div class="card-header"><span class="card-title">Grading Scale</span></div>
     <div class="card-body">
-      {% for rng, g, rem, cls in [('70–100','A','Excellent','A'),('60–69','B','Good','B'),('50–59','C','Average','C'),('40–49','D','Below Average','D'),('0–39','F','Fail','F')] %}
-      <div class="flex-row" style="padding:5px 0;border-bottom:1px solid var(--border)">
-        <span class="text-sm text-muted">{{ rng }}</span>
-        <span class="badge badge-{{ cls }}">{{ g }}</span>
+      {% for rng, g_val, rem, cls in [('70–100','A','Excellent','A'),('60–69','B','Good','B'),('50–59','C','Average','C'),('40–49','D','Below Average','D'),('0–39','F','Fail','F')] %}
+      <div class="flex-row" style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <span class="text-sm text-muted" style="min-width:60px">{{ rng }}</span>
+        <span class="badge badge-{{ cls }}">{{ g_val }}</span>
         <span class="text-sm">{{ rem }}</span>
       </div>
       {% endfor %}
