@@ -5,23 +5,23 @@ Handles connection, initialisation, and seeding.
 
 import sqlite3
 import os
-import click
 from flask import g
 
 
-def get_db(app=None):
-    """Return a database connection, reusing within request context."""
-    from flask import current_app
-    _app = app or current_app
+# ── Schema path — resolved relative to this file, always reliable ─────────────
+SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
 
+
+def get_db():
+    """Return a DB connection, reused within the current request context."""
+    from flask import current_app
     if "db" not in g:
         g.db = sqlite3.connect(
-            _app.config["DATABASE"],
+            current_app.config["DATABASE"],
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
-
     return g.db
 
 
@@ -31,32 +31,39 @@ def close_db(e=None):
         db.close()
 
 
+def _raw_connect(db_path):
+    """Open a direct connection outside of request context (for startup)."""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
 def init_db(app):
-    """Create tables from schema.sql."""
-    schema_path = os.path.join(os.path.dirname(__file__), "..", "schema.sql")
-    # Also check same directory
-    if not os.path.exists(schema_path):
-        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+    """Create all tables from schema.sql. Safe to call multiple times."""
+    if not os.path.exists(SCHEMA_PATH):
+        raise RuntimeError(f"schema.sql not found at {SCHEMA_PATH}")
 
-    with app.app_context():
-        db = sqlite3.connect(app.config["DATABASE"])
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA foreign_keys = ON")
+    db_path = app.config["DATABASE"]
 
-        with open(schema_path, "r") as f:
-            db.executescript(f.read())
-        db.commit()
-        db.close()
+    # Ensure the directory exists
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
+    conn = _raw_connect(db_path)
+    try:
+        with open(SCHEMA_PATH, "r") as f:
+            conn.executescript(f.read())
+        conn.commit()
+    finally:
+        conn.close()
 
     app.teardown_appcontext(close_db)
 
 
 def seed_class_subjects(app):
-    """
-    Seed the class_subjects mapping table.
-    JSS 1-3 → 15 JSS subjects
-    SS departments → 9 department-specific subjects
-    """
+    """Seed class→subject mappings. Skips classes already seeded."""
     JSS_SUBJECTS = [
         "Mathematics", "English Language", "Basic Science", "Social Studies",
         "Civic Education", "Agricultural Science", "Home Economics",
@@ -64,7 +71,6 @@ def seed_class_subjects(app):
         "Physical & Health Education", "Fine Arts", "Music",
         "Business Studies", "Yoruba/Hausa/Igbo Language",
     ]
-
     SS_SUBJECTS = {
         "Science":    ["Mathematics", "English Language", "Physics", "Chemistry",
                        "Biology", "Further Mathematics", "Geography",
@@ -77,63 +83,60 @@ def seed_class_subjects(app):
                        "Office Practice", "Marketing"],
     }
 
-    with app.app_context():
-        db = sqlite3.connect(app.config["DATABASE"])
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA foreign_keys = ON")
-
-        classes = db.execute("SELECT id, name, level, department FROM classes").fetchall()
+    db_path = app.config["DATABASE"]
+    conn = _raw_connect(db_path)
+    try:
+        classes = conn.execute(
+            "SELECT id, name, level, department FROM classes"
+        ).fetchall()
 
         for cls in classes:
-            # Skip if already seeded
-            existing = db.execute(
-                "SELECT COUNT(*) as cnt FROM class_subjects WHERE class_id = ?",
+            existing = conn.execute(
+                "SELECT COUNT(*) AS cnt FROM class_subjects WHERE class_id=?",
                 (cls["id"],)
             ).fetchone()["cnt"]
 
             if existing > 0:
                 continue
 
-            if cls["level"] == "JSS":
-                subject_list = JSS_SUBJECTS
-            else:
-                subject_list = SS_SUBJECTS.get(cls["department"], [])
+            subject_list = (
+                JSS_SUBJECTS if cls["level"] == "JSS"
+                else SS_SUBJECTS.get(cls["department"], [])
+            )
 
-            for order, subj_name in enumerate(subject_list):
-                subj = db.execute(
-                    "SELECT id FROM subjects WHERE name = ?", (subj_name,)
+            for order, name in enumerate(subject_list):
+                subj = conn.execute(
+                    "SELECT id FROM subjects WHERE name=?", (name,)
                 ).fetchone()
                 if subj:
-                    db.execute(
-                        "INSERT OR IGNORE INTO class_subjects (class_id, subject_id, sort_order) VALUES (?,?,?)",
+                    conn.execute(
+                        """INSERT OR IGNORE INTO class_subjects
+                           (class_id, subject_id, sort_order) VALUES (?,?,?)""",
                         (cls["id"], subj["id"], order)
                     )
+        conn.commit()
+    finally:
+        conn.close()
 
-        db.commit()
-        db.close()
 
-
-# ── Query helpers ─────────────────────────────────────────────────────────────
+# ── Request-scoped query helpers ──────────────────────────────────────────────
 
 def query(sql, args=(), one=False):
-    """Run a SELECT and return Row(s)."""
-    from flask import current_app
-    db = get_db()
-    cur = db.execute(sql, args)
-    rv = cur.fetchall()
+    """Run a SELECT within the current request context."""
+    cur = get_db().execute(sql, args)
+    rv  = cur.fetchall()
     return (rv[0] if rv else None) if one else rv
 
 
 def mutate(sql, args=()):
     """Run INSERT / UPDATE / DELETE and commit."""
-    db = get_db()
+    db  = get_db()
     cur = db.execute(sql, args)
     db.commit()
     return cur.lastrowid
 
 
 def get_current_term():
-    """Return the current term row."""
     return query(
         """SELECT t.id, t.name, s.name AS session_name
            FROM terms t
@@ -145,17 +148,14 @@ def get_current_term():
 
 
 def get_settings():
-    """Return settings as a plain dict."""
     rows = query("SELECT key, value FROM settings")
     return {r["key"]: r["value"] for r in rows}
 
 
 def get_grade(total):
-    """Return (grade, remark) for a numeric total."""
-    if total is None:
-        return ("—", "—")
-    if total >= 70: return ("A", "Excellent")
-    if total >= 60: return ("B", "Good")
-    if total >= 50: return ("C", "Average")
-    if total >= 40: return ("D", "Below Average")
+    if total is None:       return ("—", "—")
+    if total >= 70:         return ("A", "Excellent")
+    if total >= 60:         return ("B", "Good")
+    if total >= 50:         return ("C", "Average")
+    if total >= 40:         return ("D", "Below Average")
     return ("F", "Fail")
