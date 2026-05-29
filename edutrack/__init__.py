@@ -4,8 +4,8 @@ Flask application entry point and configuration
 """
 
 import os
-from flask import Flask
-from .database import init_db, seed_class_subjects
+from flask import Flask, session, g
+from .database import init_db, seed_class_subjects, query
 
 
 def create_app():
@@ -27,6 +27,16 @@ def create_app():
     with app.app_context():
         init_db(app)
         seed_class_subjects(app)
+
+    # ── Load logged-in user on EVERY request, app-level ──────────────────────
+    @app.before_request
+    def load_user():
+        user_id = session.get("user_id")
+        if user_id:
+            g.user = query("SELECT * FROM users WHERE id = ?",
+                           (user_id,), one=True)
+        else:
+            g.user = None
 
     # Register blueprints
     from .routes.auth      import auth_bp
