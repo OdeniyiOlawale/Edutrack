@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}{{ student.full_name }} — Scores{% endblock %}
+{% block extra_style %}
+.subj-row { display:flex; align-items:center; gap:10px; padding:12px 16px;
+            border-bottom:1px solid #eef2f0; }
+.subj-row:last-child { border-bottom:none; }
+.subj-name { flex:1; font-size:0.88rem; font-weight:600; min-width:0; }
+.subj-inputs { display:flex; gap:6px; align-items:center; flex-shrink:0; }
+.score-box { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.score-label { font-size:0.58rem; text-transform:uppercase;
+               letter-spacing:0.5px; color:var(--ink-soft); font-weight:600; }
+.ca-total-val { width:36px; text-align:center; font-size:0.82rem;
+                font-weight:700; color:var(--green-dark); }
+.total-val { width:40px; text-align:center; font-size:0.95rem;
+             font-weight:800; color:var(--ink); }
+{% endblock %}
+
+{% block content %}
+<div class="page">
+
+  <!-- Header -->
+  <div class="flex-row mb-2">
+    <a href="{{ url_for('students.index', class_id=student.class_id) }}"
+       class="btn btn-ghost btn-sm">← Back</a>
+    <div style="flex:1;min-width:0;margin-left:4px">
+      <div style="font-size:1rem;font-weight:700;
+                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        {{ student.full_name }}
+      </div>
+      <div class="text-xs text-muted">
+        {{ student.student_id }} &nbsp;·&nbsp;
+        <span class="badge {% if student.level=='JSS' %}badge-jss{% else %}badge-ss{% endif %}">
+          {{ student.class_name }}
+        </span>
+        {% if term %}
+        &nbsp;·&nbsp; {{ term.name }}
+        {% endif %}
+      </div>
+    </div>
+    <a href="{{ url_for('students.edit', student_id=student.id) }}"
+       class="btn btn-ghost btn-sm">✎ Edit</a>
+  </div>
+
+  {% if not term %}
+  <div class="alert alert-warn">⚠️ No active term set. Go to Settings to configure the current term.</div>
+  {% endif %}
+
+  <!-- Score entry tip -->
+  <div class="alert alert-info" id="tip-bar">
+    ℹ️ Enter CA 1, CA 2 (max 20 each) and Exam (max 60). Totals update automatically.
+    <button onclick="document.getElementById('tip-bar').style.display='none'"
+            style="background:none;border:none;margin-left:auto;font-size:1rem;
+                   cursor:pointer;color:#1e40af">✕</button>
+  </div>
+
+  <!-- Score table -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Subject Scores</span>
+      <button class="btn btn-primary btn-sm" id="save-btn" onclick="saveAll()">
+        💾 Save All
+      </button>
+    </div>
+
+    <!-- Column labels -->
+    <div style="display:flex;gap:6px;padding:6px 16px;
+                background:var(--mist);border-bottom:1px solid var(--border)">
+      <div style="flex:1;font-size:0.65rem;text-transform:uppercase;
+                  letter-spacing:0.6px;color:var(--ink-soft);font-weight:600">
+        Subject
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        {% for lbl in ['CA1','CA2','CA','Exam','Total','Grd'] %}
+        <div style="width:{% if lbl=='CA' or lbl=='CA1' or lbl=='CA2' %}50{% elif lbl=='Exam' %}50{% elif lbl=='Total' %}44{% else %}30{% endif %}px;
+                    text-align:center;font-size:0.62rem;text-transform:uppercase;
+                    letter-spacing:0.5px;color:var(--ink-soft);font-weight:600">
+          {{ lbl }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div id="subject-list">
+      {% for row in rows %}
+      <div class="subj-row" data-subject-id="{{ row.subject_id }}">
+        <div class="subj-name" title="{{ row.subject_name }}">
+          {{ row.subject_name }}
+        </div>
+        <div class="subj-inputs">
+          <!-- CA1 -->
+          <div class="score-box">
+            <input class="score-input" type="number" min="0" max="20" step="0.5"
+                   name="ca1"
+                   value="{{ row.ca1|int if row.ca1 is not none else '' }}"
+                   placeholder="—" oninput="calcRow(this)">
+            <span class="score-label">/20</span>
+          </div>
+          <!-- CA2 -->
+          <div class="score-box">
+            <input class="score-input" type="number" min="0" max="20" step="0.5"
+                   name="ca2"
+                   value="{{ row.ca2|int if row.ca2 is not none else '' }}"
+                   placeholder="—" oninput="calcRow(this)">
+            <span class="score-label">/20</span>
+          </div>
+          <!-- CA Total (computed) -->
+          <div class="score-box">
+            <div class="ca-total-val" id="cat-{{ row.subject_id }}">
+              {{ row.ca_total|int if row.ca_total is not none else '—' }}
+            </div>
+            <span class="score-label">/40</span>
+          </div>
+          <!-- Exam -->
+          <div class="score-box">
+            <input class="score-input" type="number" min="0" max="60" step="0.5"
+                   name="exam"
+                   value="{{ row.exam|int if row.exam is not none else '' }}"
+                   placeholder="—" oninput="calcRow(this)">
+            <span class="score-label">/60</span>
+          </div>
+          <!-- Total (computed) -->
+          <div class="score-box">
+            <div class="total-val" id="tot-{{ row.subject_id }}">
+              {{ row.total|int if row.total is not none else '—' }}
+            </div>
+            <span class="score-label">/100</span>
+          </div>
+          <!-- Grade badge -->
+          <div id="grd-{{ row.subject_id }}" style="width:28px;text-align:center">
+            {% if row.grade != '—' %}
+            <span class="badge badge-{{ row.grade }}">{{ row.grade }}</span>
+            {% else %}—{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Summary footer -->
+    {% if summary %}
+    <div class="score-footer" id="summary-footer">
+      <span>Subjects entered: <strong>{{ summary.entered }}/{{ summary.total_subj }}</strong></span>
+      <span>Total: <strong>{{ summary.total_score }}</strong></span>
+      <span>Avg: <strong>{{ summary.average }}%</strong></span>
+      <span>Grade: <strong>
+        <span class="badge badge-{{ summary.grade }}">{{ summary.grade }}</span>
+      </strong></span>
+    </div>
+    {% else %}
+    <div class="score-footer" id="summary-footer" style="display:none"></div>
+    {% endif %}
+  </div>
+
+  <!-- Report card shortcut -->
+  <a href="{{ url_for('reports.report_card', class_id=student.class_id, student_id=student.id) }}"
+     class="btn btn-outline btn-full">
+    📄 View Report Card
+  </a>
+</div>
+
+<!-- Sticky save bar -->
+<div class="save-bar" id="save-bar">
+  <span class="save-bar-text">Unsaved changes</span>
+  <button class="btn btn-primary btn-sm" onclick="saveAll()">Save</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const STUDENT_ID = {{ student.id }};
+const TERM_ID    = {{ term.id if term else 'null' }};
+let dirty = false;
+
+function calcRow(input) {
+  const row = input.closest('.subj-row');
+  const sid = row.dataset.subjectId;
+  const ca1  = parseFloat(row.querySelector('[name=ca1]').value)  || 0;
+  const ca2  = parseFloat(row.querySelector('[name=ca2]').value)  || 0;
+  const exam = parseFloat(row.querySelector('[name=exam]').value) || 0;
+
+  const hasAny = row.querySelector('[name=ca1]').value !== '' ||
+                 row.querySelector('[name=ca2]').value !== '' ||
+                 row.querySelector('[name=exam]').value !== '';
+
+  // Validate over-max
+  row.querySelector('[name=ca1]').classList.toggle('over',
+    row.querySelector('[name=ca1]').value !== '' && ca1 > 20);
+  row.querySelector('[name=ca2]').classList.toggle('over',
+    row.querySelector('[name=ca2]').value !== '' && ca2 > 20);
+  row.querySelector('[name=exam]').classList.toggle('over',
+    row.querySelector('[name=exam]').value !== '' && exam > 60);
+
+  const cat   = ca1 + ca2;
+  const total = cat + exam;
+
+  document.getElementById('cat-' + sid).textContent = hasAny ? cat  : '—';
+  document.getElementById('tot-' + sid).textContent = hasAny ? total : '—';
+
+  const gradeEl = document.getElementById('grd-' + sid);
+  if (!hasAny) {
+    gradeEl.innerHTML = '—';
+  } else {
+    const g = total >= 70 ? 'A' : total >= 60 ? 'B' :
+              total >= 50 ? 'C' : total >= 40 ? 'D' : 'F';
+    gradeEl.innerHTML = `<span class="badge badge-${g}">${g}</span>`;
+  }
+
+  markDirty();
+}
+
+function markDirty() {
+  if (!dirty) {
+    dirty = true;
+    document.getElementById('save-bar').classList.add('visible');
+  }
+}
+
+async function saveAll() {
+  if (!TERM_ID) {
+    alert('No active term set. Please configure the current term in Settings.');
+    return;
+  }
+
+  const rows   = document.querySelectorAll('.subj-row');
+  const scores = [];
+
+  rows.forEach(row => {
+    const ca1  = row.querySelector('[name=ca1]').value;
+    const ca2  = row.querySelector('[name=ca2]').value;
+    const exam = row.querySelector('[name=exam]').value;
+    scores.push({
+      subject_id: parseInt(row.dataset.subjectId),
+      ca1:  ca1  !== '' ? parseFloat(ca1)  : null,
+      ca2:  ca2  !== '' ? parseFloat(ca2)  : null,
+      exam: exam !== '' ? parseFloat(exam) : null,
+    });
+  });
+
+  const btn = document.getElementById('save-btn');
+  btn.textContent = 'Saving…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/students/save-scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        student_id: STUDENT_ID,
+        term_id:    TERM_ID,
+        scores:     scores,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.ok) {
+      dirty = false;
+      document.getElementById('save-bar').classList.remove('visible');
+      btn.textContent = '✅ Saved';
+      setTimeout(() => { btn.textContent = '💾 Save All'; btn.disabled = false; }, 2000);
+    } else {
+      alert('Error saving: ' + (data.error || 'Unknown error'));
+      btn.textContent = '💾 Save All';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    alert('Network error. Please try again.');
+    btn.textContent = '💾 Save All';
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener('beforeunload', e => {
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+</script>
+{% endblock %}

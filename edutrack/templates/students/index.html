@@ -3,59 +3,86 @@
 {% block content %}
 <div class="page">
   <div class="flex-row mb-2">
-    <div class="page-title">Students</div>
+    <div class="page-title" style="margin-bottom:0">Students</div>
     <a href="{{ url_for('students.add') }}" class="btn btn-primary btn-sm">＋ Add</a>
   </div>
 
   <!-- Filters -->
   <form method="GET">
     <div class="form-group">
-      <input class="form-control" type="search" name="q" value="{{ search }}" placeholder="🔍  Search by name or ID…">
-    </div>
-    <div class="form-group">
       <select class="form-control" name="class_id" onchange="this.form.submit()">
         <option value="">All Classes</option>
         {% for cls in classes %}
-        <option value="{{ cls.id }}" {% if selected_class == cls.id|string %}selected{% endif %}>
+        <option value="{{ cls.id }}"
+          {% if selected_class == cls.id|string %}selected{% endif %}>
           {{ cls.name }}
         </option>
         {% endfor %}
       </select>
+    </div>
+    <div class="form-group">
+      <input class="form-control" type="search" name="q"
+             value="{{ search }}" placeholder="🔍  Search by name or ID…">
     </div>
   </form>
 
   {% if students %}
   <div class="card">
     {% for s in students %}
-    <a href="{{ url_for('students.edit', student_id=s.id) }}" class="list-item">
-      <div style="width:36px;height:36px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;color:var(--green);flex-shrink:0">
+    <div class="list-item" style="padding-right:10px">
+      <!-- Avatar -->
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--green-light);
+                  display:flex;align-items:center;justify-content:center;
+                  font-weight:700;font-size:0.9rem;color:var(--green);flex-shrink:0">
         {{ s.full_name[0] }}
       </div>
-      <div class="list-main">
+
+      <!-- Main info — clicking goes to score sheet -->
+      <a href="{{ url_for('students.student_scores', student_id=s.id) }}"
+         style="flex:1;min-width:0;text-decoration:none;color:inherit">
         <div class="list-title">{{ s.full_name }}</div>
         <div class="list-sub">
-          {{ s.student_code }} &nbsp;·&nbsp;
-          <span class="badge {% if s.level=='JSS' %}badge-jss{% else %}badge-ss{% endif %}">{{ s.class_name }}</span>
+          {{ s.student_id }} &nbsp;·&nbsp;
+          <span class="badge {% if s.level=='JSS' %}badge-jss{% else %}badge-ss{% endif %}">
+            {{ s.class_name }}
+          </span>
         </div>
-      </div>
-      <div class="list-right">
+      </a>
+
+      <!-- Average score -->
+      <div style="text-align:right;flex-shrink:0;margin-right:8px">
         {% if s.avg_score %}
-          <div style="font-weight:700;font-size:1rem;color:var(--ink)">{{ s.avg_score }}</div>
-          <div class="text-xs text-muted">#{{ s.position }}</div>
+          <div style="font-weight:700;font-size:0.95rem;color:var(--ink)">
+            {{ s.avg_score }}
+          </div>
+          <div class="text-xs text-muted">avg</div>
         {% else %}
           <div class="text-xs text-muted">No scores</div>
         {% endif %}
-        <span style="color:var(--border)">›</span>
       </div>
-    </a>
+
+      <!-- Edit button -->
+      <a href="{{ url_for('students.edit', student_id=s.id) }}"
+         class="btn btn-ghost btn-sm" style="flex-shrink:0;padding:5px 8px"
+         title="Edit student">✎</a>
+    </div>
     {% endfor %}
   </div>
+
+  <div class="text-xs text-muted text-center" style="margin-top:-6px;margin-bottom:14px">
+    Tap a student's name to enter their scores
+  </div>
+
   {% else %}
   <div class="card">
     <div class="empty">
       <div class="icon">👤</div>
       <h3>No students found</h3>
-      <p>{% if search or selected_class %}Try adjusting your filters.{% else %}Add your first student to get started.{% endif %}</p>
+      <p>{% if search or selected_class %}
+        Try adjusting your filters.
+      {% else %}
+        Add your first student to get started.
+      {% endif %}</p>
     </div>
   </div>
   {% endif %}

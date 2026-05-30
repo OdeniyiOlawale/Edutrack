@@ -114,3 +114,59 @@ def save():
         saved += 1
 
     return jsonify({"ok": True, "saved": saved, "errors": errors})
+
+
+@scores_bp.route("/students/save-scores", methods=["POST"])
+@login_required
+def save_student_scores():
+    """
+    Save all subject scores for one student at once.
+    Payload: { student_id, term_id, scores: [{subject_id, ca1, ca2, exam}] }
+    """
+    data       = request.get_json()
+    student_id = data.get("student_id")
+    term_id    = data.get("term_id")
+    rows       = data.get("scores", [])
+
+    if not student_id or not term_id:
+        return jsonify({"ok": False, "error": "Missing student or term"}), 400
+
+    saved  = 0
+    errors = []
+
+    for row in rows:
+        subject_id = row.get("subject_id")
+        ca1  = row.get("ca1")
+        ca2  = row.get("ca2")
+        exam = row.get("exam")
+
+        # Skip completely empty rows
+        if ca1 is None and ca2 is None and exam is None:
+            continue
+
+        try:
+            if ca1  is not None and not (0 <= float(ca1)  <= 20): raise ValueError
+            if ca2  is not None and not (0 <= float(ca2)  <= 20): raise ValueError
+            if exam is not None and not (0 <= float(exam) <= 60): raise ValueError
+        except (ValueError, TypeError):
+            errors.append(f"Invalid score for subject {subject_id}")
+            continue
+
+        mutate(
+            """INSERT INTO scores
+                   (student_id, subject_id, term_id, ca1, ca2, exam, updated_at)
+               VALUES (?,?,?,?,?,?, CURRENT_TIMESTAMP)
+               ON CONFLICT(student_id, subject_id, term_id)
+               DO UPDATE SET
+                   ca1        = excluded.ca1,
+                   ca2        = excluded.ca2,
+                   exam       = excluded.exam,
+                   updated_at = CURRENT_TIMESTAMP""",
+            (student_id, subject_id, term_id,
+             float(ca1)  if ca1  not in (None, "") else None,
+             float(ca2)  if ca2  not in (None, "") else None,
+             float(exam) if exam not in (None, "") else None)
+        )
+        saved += 1
+
+    return jsonify({"ok": True, "saved": saved, "errors": errors})
